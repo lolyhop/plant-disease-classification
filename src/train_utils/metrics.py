@@ -1,6 +1,7 @@
+import typing as tp
+
 import torch
 import torchmetrics
-import typing as tp
 
 
 class Metrics:

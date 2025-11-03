@@ -1,11 +1,10 @@
 import typing as tp
 from pathlib import Path
-from PIL import Image
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-
 
 _AUGMENTATION_MAP: tp.Dict[str, tp.Any] = {
     "horizontal_flip": transforms.RandomHorizontalFlip,

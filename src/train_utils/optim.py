@@ -1,6 +1,7 @@
 import typing as tp
+
 import torch
-from torch import optim, nn
+from torch import nn, optim
 
 OPTIMIZER_REGISTRY: tp.Dict[str, tp.Type[optim.Optimizer]] = {
     "adam": optim.Adam,

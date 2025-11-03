@@ -1,8 +1,9 @@
+import argparse
 import typing as tp
 from pathlib import Path
-import yaml
-import argparse
+
 import torch
+import yaml
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -10,10 +11,10 @@ from src.data_utils.dataset import PlantDataset
 from src.data_utils.utils import worker_init_fn
 from src.models import vit
 from src.train_utils.callbacks import EarlyStopping, TensorboardLogger
-from src.train_utils.optim import build_optimizer, compute_grad_norm, clip_gradients
 from src.train_utils.logger import setup_logger
 from src.train_utils.metrics import Metrics
-
+from src.train_utils.optim import (build_optimizer, clip_gradients,
+                                   compute_grad_norm)
 
 MODEL_REGISTRY: tp.Dict[str, tp.Any] = {
     "vit_2021_orig": vit.VisionTransformer,
@@ -159,7 +160,7 @@ def train(cfg: tp.Dict[str, tp.Any]) -> None:
                 break
 
     tb_logger.close()
-    logger.info(f"Training complete. Best Val Acc = {best_val_acc:.4f}")
+    logger.info(f"Training complete!")
 
 
 if __name__ == "__main__":
