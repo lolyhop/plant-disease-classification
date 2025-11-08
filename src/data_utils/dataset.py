@@ -23,7 +23,7 @@ class PlantDataset(Dataset):
         root: tp.Union[str, Path],
         image_size: int = 224,
         augmentations: tp.Optional[tp.List[tp.Dict[str, tp.Any]]] = None,
-        is_train: bool = True,
+        is_train: bool = False,
     ) -> None:
         self.root = Path(root)
         self.image_size = image_size
@@ -38,8 +38,10 @@ class PlantDataset(Dataset):
         classes = sorted([p.name for p in self.root.iterdir() if p.is_dir()])
         self.class_to_idx = {cls: i for i, cls in enumerate(classes)}
         for cls in classes:
-            for img_path in (self.root / cls).glob("*.jpg"):
-                self.samples.append((img_path, self.class_to_idx[cls]))
+            cls_dir = self.root / cls
+            for ext in ["*.jpg", "*.JPG", ".png", ".PNG"]:
+                for img_path in cls_dir.glob(ext):
+                    self.samples.append((img_path, self.class_to_idx[cls]))
 
     def _build_transforms(self, aug_cfg: tp.List[tp.Dict[str, tp.Any]]) -> transforms.Compose:
         t_list: tp.List[tp.Any] = []

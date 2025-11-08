@@ -48,6 +48,10 @@ class VisionTransformer(nn.Module):
         nn.init.zeros_(self.head.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.forward_features(x)
+        return self.head(x[:, 0])
+
+    def forward_features(self, x: torch.Tensor) -> torch.Tensor:
         x = self.patch_embed(x)  # split image into patches
         x = x.flatten(2).transpose(1, 2)  # flatten and permute
         b = x.size(0)
@@ -56,4 +60,4 @@ class VisionTransformer(nn.Module):
         x = self.pos_drop(x + self.pos_embed)  # add positional embeddings
         x = self.encoder(x)  # transformer encoder
         x = self.norm(x)  # layer norm
-        return self.head(x[:, 0])  # classification head on CLS
+        return x
