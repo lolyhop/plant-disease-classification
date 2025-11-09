@@ -5,22 +5,23 @@ import torchmetrics
 
 
 class Metrics:
-    def __init__(self, num_classes: int):
-        self.num_classes = num_classes
+    def __init__(self, num_classes: int) -> None:
+        self.num_classes: int = num_classes
+        device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
         # Classification metrics
         self.accuracy = torchmetrics.Accuracy(
             task="multiclass", num_classes=num_classes
-        )
+        ).to(device)
         self.precision = torchmetrics.Precision(
             task="multiclass", num_classes=num_classes, average="macro"
-        )
+        ).to(device)
         self.recall = torchmetrics.Recall(
             task="multiclass", num_classes=num_classes, average="macro"
-        )
+        ).to(device)
         self.f1 = torchmetrics.F1Score(
             task="multiclass", num_classes=num_classes, average="macro"
-        )
+        ).to(device)
 
     def reset(self) -> None:
         self.accuracy.reset()
