@@ -65,6 +65,15 @@ python -m inference --config configs/vit_2021.yaml
 
 This will generate `predictions.csv` and `metrics.csv` in the logging directory.
 
+# Insights
+
+## ViT
+
+![](docs/imgs/attn_overlay.png)
+
+The attention maps over image patches allow for interpretability, showing which regions the model focuses on when making predictions. This helps understand how the model "looks" at different parts of the plant image to identify diseases.
+
+
 # Tech Stack
 
 * Python
