@@ -16,7 +16,7 @@ curl -L -o "${ZIP_PATH}" "${URL}"
 echo "[2] Unzipping dataset..."
 unzip -q -o "${ZIP_PATH}" -d "${DATA_DIR}"
 
-echo "[3] Flattening directory structure..."
+echo "[3] Normalizing directory structure..."
 for split in train valid test; do
   find "${DATA_DIR}" -type d -name "${split}" | while read -r nested_dir; do
     mv -n "${nested_dir}" "${DATA_DIR}/" 2>/dev/null || true
@@ -31,34 +31,36 @@ VALID_DIR="${DATA_DIR}/valid"
 TEST_DIR="${DATA_DIR}/test"
 
 if [ ! -d "${TRAIN_DIR}" ] || [ ! -d "${VALID_DIR}" ]; then
-  echo "Error: train or valid folder missing. Dataset structure unexpected."
+  echo "Error: expected train/valid directories but not found."
   exit 1
 fi
 
-echo "[4] Removing old test set if present..."
+echo "[4] Resetting test directory..."
 rm -rf "${TEST_DIR}"
 mkdir -p "${TEST_DIR}"
 
-echo "[5] Splitting valid into valid + test (stratified per class)..."
+echo "[5] Splitting valid into valid + test..."
 for class_dir in "${VALID_DIR}"/*; do
   if [ -d "${class_dir}" ]; then
     class_name="$(basename "${class_dir}")"
     mkdir -p "${TEST_DIR}/${class_name}"
 
-    mapfile -t files < <(find "${class_dir}" -type f | shuf)
-    total=${#files[@]}
+    # Gather list of files sorted lexicographically for deterministic split
+    files=$(find "${class_dir}" -type f | sort)
+    total=$(echo "${files}" | wc -l | tr -d ' ')
+    
+    # Compute split point
     split_point=$(printf "%.0f" "$(echo "$total * $VALID_RATIO" | bc)")
 
-    for i in "${!files[@]}"; do
-      file="${files[$i]}"
-      if [ "$i" -ge "$split_point" ]; then
-        mv "${file}" "${TEST_DIR}/${class_name}/"
-      fi
+    # Keep first part in VALID
+    # Move remaining part to TEST
+    echo "${files}" | tail -n "$((total - split_point))" | while read -r f; do
+      mv "$f" "${TEST_DIR}/${class_name}/"
     done
   fi
 done
 
-echo "[6] Dataset ready:"
+echo "[6] Final dataset stats:"
 echo " - train: $(find "${TRAIN_DIR}" -type f | wc -l) files"
 echo " - valid: $(find "${VALID_DIR}" -type f | wc -l) files"
 echo " - test:  $(find "${TEST_DIR}" -type f | wc -l) files"
