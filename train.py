@@ -9,16 +9,16 @@ from torch.utils.data import DataLoader
 
 from src.data_utils.dataset import PlantDataset
 from src.data_utils.utils import worker_init_fn
-from src.models import t2t_vit, vit
+from src.models import vit
+from src.models import t2t_vit
 from src.train_utils.callbacks import EarlyStopping, TensorboardLogger
 from src.train_utils.logger import setup_logger
 from src.train_utils.metrics import Metrics
-from src.train_utils.optim import (build_optimizer, clip_gradients,
-                                   compute_grad_norm)
+from src.train_utils.optim import build_optimizer, clip_gradients, compute_grad_norm
 
 MODEL_REGISTRY: tp.Dict[str, tp.Any] = {
     "vit_2021_orig": vit.VisionTransformer,
-    "t2t_vit": t2t_vit.T2TViT
+    "t2t_vit": t2t_vit.T2TViT,
 }
 
 
@@ -43,7 +43,6 @@ def train(cfg: tp.Dict[str, tp.Any]) -> None:
     )
     logger.info(f"Datasets ready: train={len(train_dataset)}, val={len(val_dataset)}")
 
-
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg["data"]["batch_size"],
@@ -59,13 +58,13 @@ def train(cfg: tp.Dict[str, tp.Any]) -> None:
         num_workers=cfg["data"]["num_workers"],
         pin_memory=True,
     )
-    logger.info(f"Dataloaders ready: train_loader={len(train_loader)} batches, val_loader={len(val_loader)} batches")
-
+    logger.info(
+        f"Dataloaders ready: train_loader={len(train_loader)} batches, val_loader={len(val_loader)} batches"
+    )
 
     ModelClass = MODEL_REGISTRY[cfg["model"]["name"]]
     model = ModelClass(**cfg["model"]["params"]).to(device)
     logger.info(f"Model instantiated: {cfg['model']['name']}")
-
 
     optimizer = build_optimizer(
         model,
@@ -86,7 +85,6 @@ def train(cfg: tp.Dict[str, tp.Any]) -> None:
     max_grad_norm = cfg["training"].get("clip_grad_norm")
     best_val_acc = 0.0
     logger.info("Training setup complete. Starting training loop...")
-
 
     for epoch in range(num_epochs):
         model.train()
@@ -145,10 +143,6 @@ def train(cfg: tp.Dict[str, tp.Any]) -> None:
             f"Validation: Loss={avg_val_loss:.4f} | "
             f"Acc={val_acc:.4f} | F1={val_results['f1']:.4f}"
         )
-
-        # Checkpoint saving
-        ckpt_path = log_dir / f"epoch_{epoch+1}_acc_{val_acc:.4f}.pt"
-        torch.save(model.state_dict(), ckpt_path)
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
