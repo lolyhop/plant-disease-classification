@@ -33,11 +33,55 @@ bash scripts/download_raw_data.sh
 
 ## MLP
 
-TODO
+1. **Standard MLP**: Review and train with:
+
+```
+python train.py --config configs/mlp.yaml
+```
+
+2. **Deep MLP**: Review and train with:
+
+```
+python train.py --config configs/deep_mlp.yaml
+```
+
+3. Run inference:
+
+```
+python inference.py --config configs/mlp.yaml
+```
 
 ## CNN
 
-TODO
+1. **ResNet**: Review and train with:
+
+```
+python train.py --config configs/resnet.yaml
+```
+
+You can modify `model_name` in the config to use `resnet18`, `resnet34`, `resnet50`, or `resnet101`.
+
+2. **DenseNet**: Review and train with:
+
+```
+python train.py --config configs/densenet.yaml
+```
+
+You can modify `model_name` in the config to use `densenet121`, `densenet169`, or `densenet201`.
+
+3. **EfficientNet**: Review and train with:
+
+```
+python train.py --config configs/efficientnet.yaml
+```
+
+You can modify `model_name` in the config to use `efficientnet_b0` through `efficientnet_b4`.
+
+4. Run inference for any CNN model:
+
+```
+python inference.py --config configs/resnet.yaml
+```
 
 ## Vision Transformer (ViT)
 

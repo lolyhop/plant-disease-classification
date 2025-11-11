@@ -9,8 +9,7 @@ from torch.utils.data import DataLoader
 
 from src.data_utils.dataset import PlantDataset
 from src.data_utils.utils import worker_init_fn
-from src.models import vit
-from src.models import t2t_vit
+from src.models import cnn, mlp, t2t_vit, vit
 from src.train_utils.callbacks import EarlyStopping, TensorboardLogger
 from src.train_utils.logger import setup_logger
 from src.train_utils.metrics import Metrics
@@ -19,6 +18,11 @@ from src.train_utils.optim import build_optimizer, clip_gradients, compute_grad_
 MODEL_REGISTRY: tp.Dict[str, tp.Any] = {
     "vit_2021_orig": vit.VisionTransformer,
     "t2t_vit": t2t_vit.T2TViT,
+    "mlp": mlp.MLP,
+    "deep_mlp": mlp.DeepMLP,
+    "resnet": cnn.ResNet,
+    "densenet": cnn.DenseNet,
+    "efficientnet": cnn.EfficientNet,
 }
 
 

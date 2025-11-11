@@ -22,8 +22,23 @@ def build_optimizer(
     if name not in OPTIMIZER_REGISTRY:
         raise ValueError(f"Unknown optimizer: {name}")
 
+    # Convert string numeric values to floats (YAML sometimes parses scientific notation as strings)
+    processed_kwargs = {}
+    for key, value in kwargs.items():
+        if isinstance(value, str):
+            # Try to convert string numbers to float
+            try:
+                processed_kwargs[key] = float(value)
+            except (ValueError, TypeError):
+                processed_kwargs[key] = value
+        elif isinstance(value, list) and key == "betas":
+            # Ensure betas are floats
+            processed_kwargs[key] = [float(v) if isinstance(v, (str, int)) else v for v in value]
+        else:
+            processed_kwargs[key] = value
+
     OptimClass = OPTIMIZER_REGISTRY[name]
-    return OptimClass(model.parameters(), lr=lr, **kwargs)
+    return OptimClass(model.parameters(), lr=float(lr), **processed_kwargs)
 
 
 def compute_grad_norm(model: nn.Module) -> float:
