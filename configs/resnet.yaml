@@ -40,3 +40,4 @@ training:
   log_dir: logs/run_resnet
   log_to_file: false
 
+

@@ -41,3 +41,4 @@ training:
   log_dir: logs/run_deep_mlp
   log_to_file: false
 
+
