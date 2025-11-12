@@ -3,7 +3,6 @@ import typing as tp
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torchvision import models
 
 
 class BasicBlock(nn.Module):
@@ -355,41 +354,256 @@ class DenseNet(nn.Module):
         return out
 
 
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation attention block."""
+
+    def __init__(self, in_channels: int, se_ratio: float = 0.25) -> None:
+        super().__init__()
+        reduced_channels = max(1, int(in_channels * se_ratio))
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(in_channels, reduced_channels, kernel_size=1, bias=True),
+            nn.SiLU(inplace=True),
+            nn.Conv2d(reduced_channels, in_channels, kernel_size=1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x * self.se(x)
+
+
+class MBConv(nn.Module):
+    """Mobile Inverted Bottleneck Convolution block."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 3,
+        stride: int = 1,
+        expansion_ratio: int = 6,
+        se_ratio: float = 0.25,
+    ) -> None:
+        super().__init__()
+        expanded_channels = in_channels * expansion_ratio
+        self.use_residual = stride == 1 and in_channels == out_channels
+
+        # Expansion phase (1x1 conv)
+        if expansion_ratio != 1:
+            self.expand_conv = nn.Conv2d(in_channels, expanded_channels, kernel_size=1, bias=False)
+            self.expand_bn = nn.BatchNorm2d(expanded_channels)
+        else:
+            self.expand_conv = None
+
+        # Depthwise convolution
+        padding = (kernel_size - 1) // 2
+        self.depthwise_conv = nn.Conv2d(
+            expanded_channels if expansion_ratio != 1 else in_channels,
+            expanded_channels if expansion_ratio != 1 else in_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=expanded_channels if expansion_ratio != 1 else in_channels,
+            bias=False,
+        )
+        self.depthwise_bn = nn.BatchNorm2d(expanded_channels if expansion_ratio != 1 else in_channels)
+
+        # SE attention
+        self.se = SEBlock(expanded_channels if expansion_ratio != 1 else in_channels, se_ratio)
+
+        # Projection phase (1x1 conv)
+        self.project_conv = nn.Conv2d(
+            expanded_channels if expansion_ratio != 1 else in_channels,
+            out_channels,
+            kernel_size=1,
+            bias=False,
+        )
+        self.project_bn = nn.BatchNorm2d(out_channels)
+
+        self.activation = nn.SiLU(inplace=True)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        identity = x
+
+        # Expansion
+        if self.expand_conv is not None:
+            x = self.expand_conv(x)
+            x = self.expand_bn(x)
+            x = self.activation(x)
+
+        # Depthwise
+        x = self.depthwise_conv(x)
+        x = self.depthwise_bn(x)
+        x = self.activation(x)
+
+        # SE attention
+        x = self.se(x)
+
+        # Projection
+        x = self.project_conv(x)
+        x = self.project_bn(x)
+
+        # Residual connection
+        if self.use_residual:
+            x = x + identity
+
+        return x
+
+
 class EfficientNet(nn.Module):
-    """EfficientNet model for plant disease classification."""
+    """Custom EfficientNet implementation with MBConv blocks and SE attention."""
 
     def __init__(
         self,
         num_classes: int,
         model_name: str = "efficientnet_b0",
-        pretrained: bool = True,
+        pretrained: bool = False,  # Not used for custom implementation
         dropout: float = 0.5,
     ) -> None:
         super().__init__()
+
+        # EfficientNet-B0 configuration: (expansion_ratio, out_channels, num_blocks, stride, kernel_size, se_ratio)
         if model_name == "efficientnet_b0":
-            backbone = models.efficientnet_b0(weights="DEFAULT" if pretrained else None)
+            width_multiplier = 1.0
+            depth_multiplier = 1.0
+            dropout_rate = 0.2
+            blocks_config = [
+                (1, 16, 1, 1, 3, 0.25),   # MBConv1
+                (6, 24, 2, 2, 3, 0.25),   # MBConv6
+                (6, 40, 2, 2, 5, 0.25),   # MBConv6
+                (6, 80, 3, 2, 3, 0.25),   # MBConv6
+                (6, 112, 3, 1, 5, 0.25),  # MBConv6
+                (6, 192, 4, 2, 5, 0.25),  # MBConv6
+                (6, 320, 1, 1, 3, 0.25),  # MBConv6
+            ]
         elif model_name == "efficientnet_b1":
-            backbone = models.efficientnet_b1(weights="DEFAULT" if pretrained else None)
+            width_multiplier = 1.0
+            depth_multiplier = 1.1
+            dropout_rate = 0.2
+            blocks_config = [
+                (1, 16, 1, 1, 3, 0.25),
+                (6, 24, 2, 2, 3, 0.25),
+                (6, 40, 2, 2, 5, 0.25),
+                (6, 80, 3, 2, 3, 0.25),
+                (6, 112, 3, 1, 5, 0.25),
+                (6, 192, 4, 2, 5, 0.25),
+                (6, 320, 1, 1, 3, 0.25),
+            ]
         elif model_name == "efficientnet_b2":
-            backbone = models.efficientnet_b2(weights="DEFAULT" if pretrained else None)
+            width_multiplier = 1.1
+            depth_multiplier = 1.2
+            dropout_rate = 0.3
+            blocks_config = [
+                (1, 16, 1, 1, 3, 0.25),
+                (6, 24, 2, 2, 3, 0.25),
+                (6, 40, 2, 2, 5, 0.25),
+                (6, 80, 3, 2, 3, 0.25),
+                (6, 112, 3, 1, 5, 0.25),
+                (6, 192, 4, 2, 5, 0.25),
+                (6, 320, 1, 1, 3, 0.25),
+            ]
         elif model_name == "efficientnet_b3":
-            backbone = models.efficientnet_b3(weights="DEFAULT" if pretrained else None)
+            width_multiplier = 1.2
+            depth_multiplier = 1.4
+            dropout_rate = 0.3
+            blocks_config = [
+                (1, 16, 1, 1, 3, 0.25),
+                (6, 24, 2, 2, 3, 0.25),
+                (6, 40, 2, 2, 5, 0.25),
+                (6, 80, 3, 2, 3, 0.25),
+                (6, 112, 3, 1, 5, 0.25),
+                (6, 192, 4, 2, 5, 0.25),
+                (6, 320, 1, 1, 3, 0.25),
+            ]
         elif model_name == "efficientnet_b4":
-            backbone = models.efficientnet_b4(weights="DEFAULT" if pretrained else None)
+            width_multiplier = 1.4
+            depth_multiplier = 1.8
+            dropout_rate = 0.4
+            blocks_config = [
+                (1, 16, 1, 1, 3, 0.25),
+                (6, 24, 2, 2, 3, 0.25),
+                (6, 40, 2, 2, 5, 0.25),
+                (6, 80, 3, 2, 3, 0.25),
+                (6, 112, 3, 1, 5, 0.25),
+                (6, 192, 4, 2, 5, 0.25),
+                (6, 320, 1, 1, 3, 0.25),
+            ]
         else:
             raise ValueError(f"Unknown EfficientNet model: {model_name}")
 
-        self.features = backbone.features
-        self.avgpool = backbone.avgpool
-        self.classifier = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(backbone.classifier[1].in_features, num_classes),
+        # Calculate channels with width multiplier
+        def round_channels(channels: int) -> int:
+            return int(channels * width_multiplier)
+
+        # Initial stem
+        stem_channels = round_channels(32)
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, stem_channels, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(stem_channels),
+            nn.SiLU(inplace=True),
         )
 
+        # Build MBConv blocks
+        self.blocks = nn.ModuleList()
+        in_channels = stem_channels
+        for expansion_ratio, out_channels, num_blocks, stride, kernel_size, se_ratio in blocks_config:
+            out_channels = round_channels(out_channels)
+            num_blocks = int(num_blocks * depth_multiplier)
+            
+            for i in range(num_blocks):
+                block_stride = stride if i == 0 else 1
+                self.blocks.append(
+                    MBConv(
+                        in_channels,
+                        out_channels,
+                        kernel_size=kernel_size,
+                        stride=block_stride,
+                        expansion_ratio=expansion_ratio,
+                        se_ratio=se_ratio,
+                    )
+                )
+                in_channels = out_channels
+
+        # Head
+        head_channels = round_channels(1280)
+        self.head = nn.Sequential(
+            nn.Conv2d(in_channels, head_channels, kernel_size=1, bias=False),
+            nn.BatchNorm2d(head_channels),
+            nn.SiLU(inplace=True),
+        )
+
+        # Classifier
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout_rate if dropout_rate > 0 else dropout),
+            nn.Linear(head_channels, num_classes),
+        )
+
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Initialize weights."""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.zeros_(m.bias)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features(x)
+        x = self.stem(x)
+        
+        for block in self.blocks:
+            x = block(x)
+        
+        x = self.head(x)
         x = self.avgpool(x)
         x = x.flatten(1)
-        return self.classifier(x)
+        x = self.classifier(x)
+        
+        return x
 
 
