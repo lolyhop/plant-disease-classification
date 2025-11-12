@@ -109,7 +109,7 @@ class ResNet(nn.Module):
         self,
         num_classes: int,
         model_name: str = "resnet18",
-        pretrained: bool = False,  # Not used for custom implementation
+        pretrained: bool = False,  
         dropout: float = 0.5,
     ) -> None:
         super().__init__()
@@ -281,7 +281,7 @@ class DenseNet(nn.Module):
         self,
         num_classes: int,
         model_name: str = "densenet121",
-        pretrained: bool = False,  # Not used for custom implementation
+        pretrained: bool = False,  
         dropout: float = 0.5,
     ) -> None:
         super().__init__()
