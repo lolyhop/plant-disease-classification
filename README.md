@@ -6,7 +6,7 @@ This project focuses on building image classifiers to identify plant diseases. W
 * Convolutional Neural Network
 * Vision Transformer
 
-![](docs/imgs/intro.png)
+![](docs/imgs/intro_v2.png)
 
 # Environment Setup
 
