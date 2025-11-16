@@ -89,6 +89,56 @@ This approach works for all models and keeps commands consistent.
 
 ---
 
+## Model API Deployment
+
+### 1. Build the Docker image
+
+```bash
+cd plant-disease-classification
+docker build -f deploy/Dockerfile -t plant-classifier .
+```
+
+### 2. Run the API container
+
+Mount your local `data` directory and provide model config and weights:
+
+```bash
+cd plant-disease-classification
+docker run -p 8000:8000 \
+  -v $(pwd)/data:/app/data \
+  -e MODEL_CONFIG_PATH=/app/configs/<your_model>.yaml \
+  -e MODEL_WEIGHTS_PATH=/app/data/logs/<your_model>/best_model.pt \
+  plant-classifier
+```
+
+* `-p 8000:8000` exposes the API on port 8000.
+* `-v $(pwd)/data:/app/data` allows the container to access model weights.
+* `MODEL_CONFIG_PATH` and `MODEL_WEIGHTS_PATH` must point to the YAML config and `.pt` file **inside the container**.
+
+### 3. Test the API
+
+OpenAPI JSON: [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
+
+Send a POST request to `/predict` with a leaf image:
+
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -F "file=@path_to_leaf_image.jpg"
+```
+
+The API returns a JSON dictionary with class probabilities:
+
+```json
+{
+  "Tomato___Early_blight": 0.92,
+  "Tomato___Leaf_Mold": 0.05,
+  "Tomato___healthy": 0.02,
+  ...
+}
+```
+
+---
+
 ## Model Performance
 
 | Model                         | Accuracy | Precision | Recall | F1-score |
