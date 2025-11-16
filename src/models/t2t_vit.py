@@ -4,29 +4,31 @@ from torch import nn
 
 
 class T2TModule(nn.Module):
-    """
-    Aggregates local image patches into tokens.
-    """
-
-    def __init__(self, in_channels: int = 3, emb_dim: int = 768):
+    def __init__(self, in_channels: int = 3, emb_dim: int = 768, t2t_dim: int = 64):
         super().__init__()
-        # first soft split: 7x7 conv, stride 4
-        self.soft_split1 = nn.Conv2d(
-            in_channels, emb_dim // 2, kernel_size=7, stride=4, padding=2
+        self.soft_split0 = nn.Unfold(kernel_size=7, stride=4, padding=2)
+        self.project0 = nn.Linear(7 * 7 * in_channels, t2t_dim)
+        self.attn1 = nn.TransformerEncoderLayer(
+            d_model=t2t_dim,
+            nhead=1,
+            dim_feedforward=t2t_dim * 2,
+            batch_first=True,
+            activation="gelu",
         )
-        # second soft split: 3x3 conv, stride 2
-        self.soft_split2 = nn.Conv2d(
-            emb_dim // 2, emb_dim, kernel_size=3, stride=2, padding=1
-        )
+        self.soft_split1 = nn.Unfold(kernel_size=3, stride=2, padding=1)
+        self.project1 = nn.Linear(3 * 3 * t2t_dim, emb_dim)
         self.norm = nn.LayerNorm(emb_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.soft_split1(x)  # (B, emb_dim//2, H1, W1)
-        x = F.gelu(x)
-        x = self.soft_split2(x)  # (B, emb_dim, H2, W2)
-        x = F.gelu(x)
-        # flatten to tokens
-        x = x.flatten(2).transpose(1, 2)  # (B, N_tokens, emb_dim)
+        b, _, h, w = x.shape
+        x = self.soft_split0(x).transpose(1, 2)
+        x = self.project0(x)
+        x = self.attn1(x)
+        h1 = (h + 2 * 2 - 7) // 4 + 1
+        w1 = (w + 2 * 2 - 7) // 4 + 1
+        x = x.transpose(1, 2).reshape(b, -1, h1, w1)
+        x = self.soft_split1(x).transpose(1, 2)
+        x = self.project1(x)
         x = self.norm(x)
         return x
 
@@ -44,16 +46,11 @@ class T2TViT(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-
         self.t2t = T2TModule(in_channels, emb_dim)
-
-        # compute number of tokens after T2T
         num_patches = (img_size // 8) ** 2
-
         self.cls_token = nn.Parameter(torch.zeros(1, 1, emb_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, emb_dim))
         self.pos_drop = nn.Dropout(dropout)
-
         encoder_layers = nn.TransformerEncoderLayer(
             d_model=emb_dim,
             nhead=num_heads,
@@ -64,7 +61,6 @@ class T2TViT(nn.Module):
             norm_first=True,
         )
         self.encoder = nn.TransformerEncoder(encoder_layers, num_layers=depth)
-
         self.norm = nn.LayerNorm(emb_dim)
         self.head = nn.Linear(emb_dim, num_classes)
         self._init_weights()
@@ -80,7 +76,7 @@ class T2TViT(nn.Module):
         return self.head(x[:, 0])
 
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.t2t(x)  # apply T2T module
+        x = self.t2t(x)
         b = x.size(0)
         cls_tokens = self.cls_token.expand(b, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
