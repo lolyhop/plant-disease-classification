@@ -13,7 +13,8 @@ from src.models import cnn, mlp, t2t_vit, vit
 from src.train_utils.callbacks import EarlyStopping, TensorboardLogger
 from src.train_utils.logger import setup_logger
 from src.train_utils.metrics import Metrics
-from src.train_utils.optim import build_optimizer, clip_gradients, compute_grad_norm
+from src.train_utils.optim import (build_optimizer, clip_gradients,
+                                   compute_grad_norm)
 
 MODEL_REGISTRY: tp.Dict[str, tp.Any] = {
     "vit_2021_orig": vit.VisionTransformer,

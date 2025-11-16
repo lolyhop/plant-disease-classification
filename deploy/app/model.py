@@ -1,9 +1,11 @@
-import torch
 from pathlib import Path
 from typing import Any, Dict
+
+import torch
 from PIL import Image
-from src.models import cnn, mlp, t2t_vit, vit
 from torchvision import transforms
+
+from src.models import cnn, mlp, t2t_vit, vit
 
 MODEL_REGISTRY: Dict[str, Any] = {
     "vit_2021_orig": vit.VisionTransformer,
