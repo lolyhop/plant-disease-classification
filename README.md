@@ -42,6 +42,7 @@ bash scripts/download_raw_data.sh
 ├── configs/                  # Model configurations
 ├── data/                     # Dataset and logs
 ├── docs/                     # Images and documentation
+├── front/                    # Streamlit frontend
 ├── notebooks/                # Jupyter notebooks for exploration
 ├── scripts/                  # Helper scripts
 ├── src/                      # Code for models, training, and utilities
@@ -136,6 +137,23 @@ The API returns a JSON dictionary with class probabilities:
   ...
 }
 ```
+
+---
+
+## Run Frontend
+
+Navigate to the frontend directory and set environment variables:
+
+```bash
+cd front/app
+
+export MODEL_CONFIG_PATH=../../configs/<config_name>.yaml
+export MODEL_WEIGHTS_PATH="weights/best_model.pt"
+
+python main.py
+```
+
+Available configs: `deep_mlp.yaml`, `densenet.yaml`, `efficientnet.yaml`, `mlp.yaml`, `resnet.yaml`, `t2t_vit.yaml`, `vit_2021.yaml`
 
 ---
 

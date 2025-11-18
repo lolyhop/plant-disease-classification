@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+# torch and torchvision are installed separately in Dockerfile for faster builds
+# torch
+# torchvision
+pyyaml
+python-multipart
+Pillow
+jinja2
+aiofiles
